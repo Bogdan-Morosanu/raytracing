@@ -15,7 +15,7 @@ namespace rt {
     friend class ImageBufferView;
     
     using ValueType = Eigen::Vector3f;
-    
+
     __host__ ImageBuffer(std::size_t w, std::size_t h)
       : header_(nullptr)
       , buffer_(nullptr)	
@@ -53,7 +53,7 @@ namespace rt {
 	this->~ImageBuffer();
 	new (this) ImageBuffer(std::move(other));
       }
-
+      
       return *this;
     }
 
@@ -103,4 +103,76 @@ namespace rt {
     ImageBuffer::Header *header_;
     ImageBuffer::ValueType *buffer_;
   };
+
+  template <typename T, std::size_t N>
+  class ArrayView;
+  
+  template <typename T, std::size_t N>
+  class Array {
+  public:
+
+    
+    template <typename SameT, std::size_t SameN>
+    friend class ArrayView;
+    
+    __host__ Array()
+      : data_(nullptr)
+    {
+      auto alloc_size = sizeof(T[N]);
+      checkCudaErrors(cudaMallocManaged((void **)&data_, alloc_size));
+
+      for (auto i = 0u; i < N; ++i) {
+	new (&data_[i]) T();
+      }
+    }
+
+    __host__ __device__ T &operator[] (std::size_t i) { return data_[i]; }
+
+    __host__ __device__ const T &operator[] (std::size_t i) const { return data_[i]; }
+    
+    __host__ __device__ T *begin() { return &data_[0]; }
+
+    __host__ __device__ T *end() { return &data_[N]; }
+
+    __host__ __device__ const T *begin() const { return &data_[0]; }
+
+    __host__ __device__ const T *end() const { return &data_[N]; }
+    
+    __host__ ~Array()
+    {
+      if (data_) {
+	for (auto i = N; i > 0; --i) {
+	  data_[i-1].~T();
+	}
+
+	checkCudaErrors(cudaFree(data_));
+      }
+    }
+    
+  private:
+    T *data_;
+  };
+
+  template <typename T, std::size_t N>
+  class ArrayView {
+  public:
+    __host__ ArrayView(Array<T, N> &arr)
+      : data_(arr.data_)
+    { }
+
+    __host__ __device__ T &operator[] (std::size_t i) { return data_[i]; }
+
+    __host__ __device__ const T &operator[] (std::size_t i) const { return data_[i]; }
+
+    __host__ __device__ T *begin() { return &data_[0]; }
+
+    __host__ __device__ T *end() { return &data_[N]; }
+
+    __host__ __device__ const T *begin() const { return &data_[0]; }
+
+    __host__ __device__ const T *end() const { return &data_[N]; }
+    
+  private:
+    T *data_;
+  };  
 }
