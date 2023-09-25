@@ -23,28 +23,33 @@ namespace config {
 
   rt::Viewport make_viewport()
   {
-    return rt::Viewport(Eigen::Vector3f(0.0f,   0.0f,  0.0f),  // origin
-			Eigen::Vector3f(4.0f,   0.0f,  0.0f),  // horizontal extent
-			Eigen::Vector3f(0.0f,   2.0f,  0.0f),  // vertical extent
-			Eigen::Vector3f(-2.0f, -1.0f, -1.0f)); // lower left corner
+    return rt::Viewport(Eigen::Vector3f(0.0f,  0.0f,  0.0f),  // origin
+			Eigen::Vector3f(4.0f,  0.0f,  0.0f),  // horizontal extent
+			Eigen::Vector3f(0.0f, -2.0f,  0.0f),  // vertical extent
+			Eigen::Vector3f(-2.0f, 1.0f, -1.0f)); // upper left corner
   }
 }
 
-__device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::Sphere, 1> &spheres)
+__device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::Sphere, 2> &spheres)
 {
   auto dir = r.direction().normalized();
-
+  auto t_interval = rt::Interval(0.0f, std::numeric_limits<float>::max());
+  
+  // hitting geometry
   for (auto &s : spheres) {
-    if (s.is_hit(r)) {
-      return Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+    auto maybe_hit_result = s.hit(r, t_interval);
+    if (maybe_hit_result.is_valid()) {
+      auto n = maybe_hit_result.value().normal;
+      return 0.5f * Eigen::Vector3f(n.x() + 1.0f, n.y() + 1.0f, n.z() + 1.0f);
     }
   }
-  
+
+  // background
   float y_fraction = 0.5f * (dir[1] + 1.0f);
   return (1.0f - y_fraction) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) + y_fraction * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
 }
 
-__global__ void render(rt::Viewport viewport, rt::ArrayView<rt::Sphere, 1> spheres, rt::ImageBufferView img)
+__global__ void render(rt::Viewport viewport, rt::ArrayView<rt::Sphere, 2> spheres, rt::ImageBufferView img)
 {
   int row = threadIdx.x + blockIdx.x * blockDim.x;
   int col = threadIdx.y + blockIdx.y * blockDim.y;
@@ -79,10 +84,11 @@ int main(int argc, char **argv)
   std::printf("running (%lu, %lu) blocks\n", w_partition.elements_per_thread, h_partition.elements_per_thread);
 
   auto viewport = config::make_viewport();
-  rt::Array<rt::Sphere, 1> spheres;
+  rt::Array<rt::Sphere, 2> spheres;
   spheres[0] = rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f);
-
-  render<<<blocks, threads>>>(viewport, rt::ArrayView<rt::Sphere, 1>(spheres), rt::ImageBufferView(img));
+  spheres[1] = rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f);
+  
+  render<<<blocks, threads>>>(viewport, rt::ArrayView<rt::Sphere, 2>(spheres), rt::ImageBufferView(img));
 
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());

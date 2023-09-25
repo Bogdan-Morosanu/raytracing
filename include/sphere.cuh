@@ -2,6 +2,7 @@
 
 #include "optional.cuh"
 #include "hit_result.cuh"
+#include "interval.cuh"
 #include "ray.cuh"
 
 namespace rt {
@@ -20,7 +21,8 @@ namespace rt {
       return qparams.discriminant > 0.0f;
     }
 
-    __device__ rt::Optional<HitResult> hit(const Ray &ray) const
+    __device__ rt::Optional<HitResult> hit(const Ray &ray,
+					   const rt::Interval &t_interval) const
     {
       auto qparams = compute_quadratic_params(ray);
 
@@ -30,14 +32,25 @@ namespace rt {
 	res.time = 0.0f;
 	// take the root with a lower t value (ie closer to the ray being shot)
 	auto t = -qparams.b - sqrt(qparams.discriminant) / (2.0f * qparams.a);
-	res.point = ray.point_at_param(t);
-	res.normal = (res.point - center_).normalized();
 
-	return res;
+	if (t_interval.contains(t)) {
+	  res.point = ray.point_at_param(t);
+	  res.normal = (res.point - center_).normalized();
+	  return res;
+
+	} else {
+	  t =  -qparams.b + sqrt(qparams.discriminant) / (2.0f * qparams.a);
+	  if (t_interval.contains(t)) {
+	    res.point = ray.point_at_param(t);
+	    res.normal = (res.point - center_).normalized();
+	    return res;
+	  }
+	}
 	
-      } else {
-	return {};
       }
+
+      // no valid param
+      return {};
     }
     
   private:
