@@ -126,6 +126,8 @@ namespace rt {
       }
     }
 
+    // TODO add initialiser list ctor.
+    
     __host__ __device__ T &operator[] (std::size_t i) { return data_[i]; }
 
     __host__ __device__ const T &operator[] (std::size_t i) const { return data_[i]; }

@@ -6,7 +6,12 @@
 #include "ray.cuh"
 
 namespace rt {
+
+  class DirectionalLight;
+
   class Sphere {
+    friend class SphericalLight;
+    
   public:
     __host__ __device__ Sphere() = default;
     
@@ -22,7 +27,7 @@ namespace rt {
     }
 
     __device__ rt::Optional<HitResult> hit(const Ray &ray,
-					   const rt::Interval &t_interval) const
+					   const Interval &t_interval) const
     {
       auto qparams = compute_quadratic_params(ray);
 
@@ -36,6 +41,7 @@ namespace rt {
 	if (t_interval.contains(t)) {
 	  res.point = ray.point_at_param(t);
 	  res.normal = (res.point - center_).normalized();
+	  res.t = t;
 	  return res;
 
 	} else {
@@ -43,6 +49,7 @@ namespace rt {
 	  if (t_interval.contains(t)) {
 	    res.point = ray.point_at_param(t);
 	    res.normal = (res.point - center_).normalized();
+	    res.t = t;
 	    return res;
 	  }
 	}

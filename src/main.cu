@@ -10,6 +10,7 @@
 
 #include "alloc.cuh"
 #include "check_error.cuh"
+#include "light.cuh"
 #include "multisample_mesh.cuh"
 #include "work_partition.cuh"
 #include "ray.cuh"
@@ -53,7 +54,10 @@ __device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::S
 }
 
 
-__global__ void render(rt::Viewport viewport, rt::ArrayView<rt::Sphere, 2> spheres, rt::ImageBufferView img)
+__global__ void render(rt::Viewport viewport,
+		       rt::ArrayView<rt::Sphere, 2> spheres,
+		       rt::ArrayView<rt::DirectionalLight, 1> lights,
+		       rt::ImageBufferView img)
 {
   int row = threadIdx.x + blockIdx.x * blockDim.x;
   int col = threadIdx.y + blockIdx.y * blockDim.y;
@@ -101,8 +105,14 @@ int main(int argc, char **argv)
   rt::Array<rt::Sphere, 2> spheres;
   spheres[0] = rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f);
   spheres[1] = rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f);
+
+  rt::Array<rt::DirectionalLight, 1> lights;
+  lights[1] = rt::DirectionalLight{Eigen::Vector3f(1.0f, -1.0f, -1.0f)};
   
-  render<<<blocks, threads>>>(viewport, rt::ArrayView<rt::Sphere, 2>(spheres), rt::ImageBufferView(img));
+  render<<<blocks, threads>>>(viewport,
+			      rt::ArrayView<rt::Sphere, 2>(spheres),
+			      rt::ArrayView<rt::DirectionalLight, 1>(lights),
+			      rt::ImageBufferView(img));
 
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());

@@ -5,6 +5,7 @@
 namespace rt {
   struct HitResult {
     float time;
+    float t;
     Eigen::Vector3f point;
     Eigen::Vector3f normal;
   };
