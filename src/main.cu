@@ -102,12 +102,10 @@ int main(int argc, char **argv)
   std::printf("running (%lu, %lu) blocks\n", w_partition.elements_per_thread, h_partition.elements_per_thread);
 
   auto viewport = config::make_viewport();
-  rt::Array<rt::Sphere, 2> spheres;
-  spheres[0] = rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f);
-  spheres[1] = rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f);
+  rt::Array<rt::Sphere, 2> spheres({rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f),
+	                            rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f)});
 
-  rt::Array<rt::DirectionalLight, 1> lights;
-  lights[1] = rt::DirectionalLight{Eigen::Vector3f(1.0f, -1.0f, -1.0f)};
+  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(1.0f, -1.0f, -1.0f)}});
   
   render<<<blocks, threads>>>(viewport,
 			      rt::ArrayView<rt::Sphere, 2>(spheres),

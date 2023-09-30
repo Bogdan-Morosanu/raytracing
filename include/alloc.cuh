@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <new>
 
 #include <Eigen/Dense>
 
@@ -114,12 +115,25 @@ namespace rt {
     
     template <typename SameT, std::size_t SameN>
     friend class ArrayView;
-    
-    __host__ Array()
-      : data_(nullptr)
+
+    __host__ Array(std::initializer_list<T> init_vals)
+      : data_(alloc())
     {
-      auto alloc_size = sizeof(T[N]);
-      checkCudaErrors(cudaMallocManaged((void **)&data_, alloc_size));
+      assert(init_vals.size() <= N);
+
+      int i = 0;
+      for (auto it = init_vals.begin(); it != init_vals.end(); ++it, ++i) {
+	new (&data_[i]) T(std::move(*it));
+      }
+
+      for ( ; i < N; ++i) {
+	new (&data_[i]) T();
+      }
+    }
+		   
+    __host__ Array()
+      : data_(alloc())
+    {
 
       for (auto i = 0u; i < N; ++i) {
 	new (&data_[i]) T();
@@ -152,6 +166,17 @@ namespace rt {
     }
     
   private:
+
+    __host__ __device__ T *alloc()
+    {
+      T *ptr;
+
+      auto alloc_size = sizeof(T[N]);
+      checkCudaErrors(cudaMallocManaged((void **)&ptr, alloc_size));
+
+      return ptr;
+    }
+    
     T *data_;
   };
 

@@ -39,8 +39,7 @@ namespace rt {
 
   class DirectionalLight {
   public:
-    // TODO remove when Array supports initializer list
-    __host__ __device__ DirectionalLight() = default;
+    DirectionalLight() = default;
     
     __host__ __device__ DirectionalLight(Eigen::Vector3f dir)
       : dir_(dir)

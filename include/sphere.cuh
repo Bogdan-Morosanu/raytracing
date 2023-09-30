@@ -13,7 +13,7 @@ namespace rt {
     friend class SphericalLight;
     
   public:
-    __host__ __device__ Sphere() = default;
+    Sphere() = default;
     
     __host__ __device__ Sphere(const Eigen::Vector3f &c, float r)
       : center_(c)
