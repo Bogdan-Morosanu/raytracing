@@ -174,5 +174,31 @@ namespace rt {
     
   private:
     T *data_;
-  };  
+  };
+
+  template <typename T, std::size_t N>
+  class DeviceArray {
+  public:
+
+    __device__ DeviceArray()
+      : data_()
+    {}
+
+    __device__ std::size_t size() const { return N; }
+
+    __device__ T &operator [](std::size_t i) { return data_[i]; }
+
+    __device__ const T &operator [](std::size_t i) const { return data_[i]; }
+
+    __device__ T *begin() { return data_; }
+
+    __device__ const T *begin() const { return data_; }
+
+    __device__ T *end() { return data_ + N; }
+
+    __device__ const T *end() const { return data_ + N; }
+
+  private:
+    T data_[N];
+  };
 }

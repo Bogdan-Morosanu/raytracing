@@ -6,8 +6,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+#include <curand_kernel.h>
+
 #include "alloc.cuh"
 #include "check_error.cuh"
+#include "multisample_mesh.cuh"
 #include "work_partition.cuh"
 #include "ray.cuh"
 #include "sphere.cuh"
@@ -49,17 +52,28 @@ __device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::S
   return (1.0f - y_fraction) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) + y_fraction * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
 }
 
+
 __global__ void render(rt::Viewport viewport, rt::ArrayView<rt::Sphere, 2> spheres, rt::ImageBufferView img)
 {
   int row = threadIdx.x + blockIdx.x * blockDim.x;
   int col = threadIdx.y + blockIdx.y * blockDim.y;
-
+  rt::MultisampleMesh msmesh(img.width(), img.height());;
+  
   if (row < img.width() && col < img.height()) {
     int pixel_index = col * img.width() + row;
     float u = float(row) / img.width();
     float v = float(col) / img.height();
-    auto ray = viewport.compute_ray(u, v);
-    img.buffer()[pixel_index] = color_ray(ray, spheres);
+    Eigen::Vector2f pixel(u, v);
+    
+    auto samples = msmesh.generate_samples(pixel);
+    img.buffer()[pixel_index] = Eigen::Vector3f{0.0f, 0.0f, 0.0f};
+
+    for (auto &s : samples) {
+      auto ray = viewport.compute_ray(s.x(), s.y());
+      img.buffer()[pixel_index] += color_ray(ray, spheres);
+    }
+    
+    img.buffer()[pixel_index] /= float(samples.size());
   }
 }
 
