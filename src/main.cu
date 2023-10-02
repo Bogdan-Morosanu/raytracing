@@ -14,7 +14,8 @@
 #include "multisample_mesh.cuh"
 #include "work_partition.cuh"
 #include "ray.cuh"
-#include "sphere.cuh"
+#include "scene_object.cuh"
+#include "variant.cuh"
 #include "viewport.cuh"
 
 namespace config {
@@ -34,7 +35,7 @@ namespace config {
   }
 }
 
-__device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::Sphere, 2> &spheres)
+__device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::SceneObject, 2> &spheres)
 {
   auto dir = r.direction().normalized();
   auto t_interval = rt::Interval(0.0f, std::numeric_limits<float>::max());
@@ -55,7 +56,7 @@ __device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::S
 
 
 __global__ void render(rt::Viewport viewport,
-		       rt::ArrayView<rt::Sphere, 2> spheres,
+		       rt::ArrayView<rt::SceneObject, 2> spheres,
 		       rt::ArrayView<rt::DirectionalLight, 1> lights,
 		       rt::ImageBufferView img)
 {
@@ -102,14 +103,14 @@ int main(int argc, char **argv)
   std::printf("running (%lu, %lu) blocks\n", w_partition.elements_per_thread, h_partition.elements_per_thread);
 
   auto viewport = config::make_viewport();
-  rt::Array<rt::Sphere, 2> spheres({rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f),
-	                            rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f)});
+  rt::Array<rt::SceneObject, 2> spheres({rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f),
+					 rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f)});
 
   rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(1.0f, -1.0f, -1.0f)}});
   
   render<<<blocks, threads>>>(viewport,
-			      rt::ArrayView<rt::Sphere, 2>(spheres),
-			      rt::ArrayView<rt::DirectionalLight, 1>(lights),
+			      rt::make_view(spheres),
+			      rt::make_view(lights),
 			      rt::ImageBufferView(img));
 
   checkCudaErrors(cudaGetLastError());

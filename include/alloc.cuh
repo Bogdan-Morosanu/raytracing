@@ -204,6 +204,12 @@ namespace rt {
   };
 
   template <typename T, std::size_t N>
+  ArrayView<T, N> make_view(Array<T, N> &array)
+  {
+    return ArrayView<T, N>(array);
+  }
+  
+  template <typename T, std::size_t N>
   class DeviceArray {
   public:
 
