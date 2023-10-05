@@ -51,6 +51,8 @@ namespace rt {
 	this->~Optional();
 	new (this) Optional(other);
       }
+
+      return *this;
     }
 
     __host__ __device__
@@ -61,6 +63,8 @@ namespace rt {
 	this->~Optional();
 	new (this) Optional(std::move(other));
       }
+
+      return *this;
     }
 
     __host__ __device__
@@ -88,6 +92,8 @@ namespace rt {
       }
     }
 
+    __host__ __device__
+    operator bool() const { return is_valid_; }
   private:
 
     __host__ __device__
@@ -99,7 +105,7 @@ namespace rt {
     __host__ __device__
     const T *value_ptr() const
     {
-      return reinterpret_cast<T*>(buff_);
+      return reinterpret_cast<const T*>(buff_);
     }
 
     bool is_valid_;

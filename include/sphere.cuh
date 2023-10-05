@@ -34,9 +34,8 @@ namespace rt {
       if (qparams.discriminant > 0.0f) {
 	HitResult res;
 
-	res.time = 0.0f;
 	// take the root with a lower t value (ie closer to the ray being shot)
-	auto t = -qparams.b - sqrt(qparams.discriminant) / (2.0f * qparams.a);
+	auto t = (-qparams.b - sqrt(qparams.discriminant)) / (2.0f * qparams.a);
 
 	if (t_interval.contains(t)) {
 	  res.point = ray.point_at_param(t);
@@ -45,7 +44,7 @@ namespace rt {
 	  return res;
 
 	} else {
-	  t =  -qparams.b + sqrt(qparams.discriminant) / (2.0f * qparams.a);
+	  t =  (-qparams.b + sqrt(qparams.discriminant)) / (2.0f * qparams.a);
 	  if (t_interval.contains(t)) {
 	    res.point = ray.point_at_param(t);
 	    res.normal = (res.point - center_).normalized();
@@ -71,6 +70,10 @@ namespace rt {
     
     __device__ QuadraticParams compute_quadratic_params(const Ray &ray) const
     {
+      // (xo + t*xd - xc)^2 + (yo + t*yd - yc)^2 + (zo + t*zd - zc)^2  = r*r
+      // (xd^2 + yd^2 + zd^2)* t^2 + 2 * ((xo-xc)*xd  + (yo-yc)*yd + (zo-zc)*zd)*t + ((xo-xc)^2 + (yo-yc)^2 + (zo-zc)^2) = r*r
+      //
+      
       Eigen::Vector3f oc = ray.origin() - center_;
 
       float a = ray.direction().dot(ray.direction());

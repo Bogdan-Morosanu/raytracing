@@ -35,20 +35,88 @@ namespace config {
   }
 }
 
-__device__ Eigen::Vector3f color_ray(const rt::Ray &r, const rt::ArrayView<rt::SceneObject, 2> &spheres)
+__device__ Eigen::Vector3f simple_light_color(int obj_index,
+					      const rt::HitResult &hit_result,
+					      const rt::ArrayView<rt::SceneObject, 2> &spheres,
+					      const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
-  auto dir = r.direction().normalized();
-  auto t_interval = rt::Interval(0.0f, std::numeric_limits<float>::max());
+  auto point_color = Eigen::Vector3f{0.0f, 0.0f, 1.0f};
+  Eigen::Vector3f result = point_color / 256.0f;
   
-  // hitting geometry
-  for (auto &s : spheres) {
-    auto maybe_hit_result = s.hit(r, t_interval);
-    if (maybe_hit_result.is_valid()) {
-      auto n = maybe_hit_result.value().normal;
-      return 0.5f * Eigen::Vector3f(n.x() + 1.0f, n.y() + 1.0f, n.z() + 1.0f);
+  for (auto &light: lights) {
+    auto point_to_light_ray = light.ray_from(hit_result.point);
+
+    bool obstructed = false;
+    int i = 0;
+    for (auto &object: spheres) {
+      auto inf = float(INFINITY);
+      auto r = point_to_light_ray.ray;
+      auto hr = object.hit(r, rt::Interval{-inf, inf});
+      if (hr) {
+	// std::printf("ray from %i to light ((%f, %f, %f), (%f, %f, %f)) hit obj %i at %f\n",
+	// 	    obj_index,
+	// 	    r.origin().x(),
+	// 	    r.origin().y(),
+	// 	    r.origin().z(),
+	// 	    r.direction().x(),
+	// 	    r.direction().y(),
+	// 	    r.direction().z(),
+	// 	    i,
+	// 	    hr.value().t);
+      }
+      
+      if (point_to_light_ray.obstructed_by(object)) {
+	obstructed = true;
+	break;
+      }
+      i++;
+    }
+
+    if (obstructed) {
+      continue;
+    }
+
+    auto scale = -hit_result.normal.dot(point_to_light_ray.hit_result.normal);
+    auto light_color = point_to_light_ray.color;
+    if (scale > 0) {
+      result += scale * Eigen::Vector3f{light_color.x() * point_color.x(),
+					light_color.y() * point_color.y(),
+					light_color.z() * point_color.z()};
     }
   }
 
+  return result;
+}					      
+
+__device__ Eigen::Vector3f color_ray(const rt::Ray &r,
+				     const rt::ArrayView<rt::SceneObject, 2> &spheres,
+				     const rt::ArrayView<rt::DirectionalLight, 1> &lights)
+{
+  auto dir = r.direction().normalized();
+  auto t_interval = rt::Interval(0.0f, std::numeric_limits<float>::max());
+  auto lowest_t = std::numeric_limits<float>::max();
+  rt::Optional<rt::HitResult> hit_result;
+
+  auto obj_hit = 0;
+  
+  // hitting geometry
+  auto i = 0;
+  for (auto &s : spheres) {
+    auto maybe_hit_result = s.hit(r, t_interval);
+    if (maybe_hit_result.is_valid()) {
+      if (maybe_hit_result.value().t < lowest_t) {
+	lowest_t = maybe_hit_result.value().t;
+	hit_result = maybe_hit_result;
+	obj_hit = i;
+      }
+    }
+    i++;
+  }
+
+  if (hit_result) {
+    return simple_light_color(obj_hit, hit_result.value(), spheres, lights);
+  }
+  
   // background
   float y_fraction = 0.5f * (dir[1] + 1.0f);
   return (1.0f - y_fraction) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) + y_fraction * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
@@ -75,7 +143,7 @@ __global__ void render(rt::Viewport viewport,
 
     for (auto &s : samples) {
       auto ray = viewport.compute_ray(s.x(), s.y());
-      img.buffer()[pixel_index] += color_ray(ray, spheres);
+      img.buffer()[pixel_index] += color_ray(ray, spheres, lights);
     }
     
     img.buffer()[pixel_index] /= float(samples.size());
@@ -104,9 +172,10 @@ int main(int argc, char **argv)
 
   auto viewport = config::make_viewport();
   rt::Array<rt::SceneObject, 2> spheres({rt::Sphere(Eigen::Vector3f(0.0f, 0.0f, -1.0f), 0.5f),
-					 rt::Sphere(Eigen::Vector3f(0.0f, -100.5f, -1.0f), 100.0f)});
+					 rt::Sphere(Eigen::Vector3f(-1.0f, 0.0f, -1.0f), 0.5f)});
 
-  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(1.0f, -1.0f, -1.0f)}});
+  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(1.0f, 0.0f, 0.0f),
+                                                                  Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});
   
   render<<<blocks, threads>>>(viewport,
 			      rt::make_view(spheres),
