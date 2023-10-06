@@ -2,21 +2,11 @@
 
 #include "sphere.cuh"
 #include "plane.cuh"
+#include "triangle.cuh"
 #include "variant.cuh"
 
 namespace rt {
-  namespace internal {
-      struct CanHitVisitor {
-	CanHitVisitor(const Ray &r)
-	  : r_(r) { }
 
-	template <typename Object>
-	bool operator()(Object &o) { return o.can_hit(r_); }
-
-	const Ray &r_;
-      };
-  }
-  
   class SceneObject {
   public:
 
@@ -28,6 +18,10 @@ namespace rt {
 
     SceneObject(Plane plane)
       : object_(std::move(plane))
+    { }
+
+    SceneObject(Triangle triangle)
+      : object_(std::move(triangle))
     { }
     
     __device__ bool can_hit(const Ray &r) const
@@ -47,6 +41,6 @@ namespace rt {
     }
     
   private:
-    Variant<Sphere, Plane> object_;
+    Variant<Sphere, Plane, Triangle> object_;
   };
 }

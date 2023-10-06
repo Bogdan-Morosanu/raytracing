@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Eigen/Dense>
+
 #include "optional.cuh"
 #include "hit_result.cuh"
 #include "interval.cuh"
@@ -26,8 +28,8 @@ namespace rt {
       return qparams.discriminant > 0.0f;
     }
 
-    __device__ rt::Optional<HitResult> hit(const Ray &ray,
-					   const Interval &t_interval) const
+    __device__ Optional<HitResult> hit(const Ray &ray,
+				       const Interval &t_interval) const
     {
       auto qparams = compute_quadratic_params(ray);
 
