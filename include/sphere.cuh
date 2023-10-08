@@ -37,8 +37,9 @@ namespace rt {
 	HitResult res;
 
 	// take the root with a lower t value (ie closer to the ray being shot)
-	auto t = (-qparams.b - sqrt(qparams.discriminant)) / (2.0f * qparams.a);
-
+	auto t = (-qparams.b - sqrt(qparams.discriminant)) / (qparams.a);
+	// auto t2 = (-qparams.b + sqrt(qparams.discriminant)) / (2.0f * qparams.a);
+	// std::printf("solutions %f, %f\n", t, t2);	
 	if (t_interval.contains(t)) {
 	  res.point = ray.point_at_param(t);
 	  res.normal = (res.point - center_).normalized();
@@ -46,7 +47,7 @@ namespace rt {
 	  return res;
 
 	} else {
-	  t =  (-qparams.b + sqrt(qparams.discriminant)) / (2.0f * qparams.a);
+	  t =  (-qparams.b + sqrt(qparams.discriminant)) / (qparams.a);
 	  if (t_interval.contains(t)) {
 	    res.point = ray.point_at_param(t);
 	    res.normal = (res.point - center_).normalized();
@@ -75,14 +76,25 @@ namespace rt {
       // (xo + t*xd - xc)^2 + (yo + t*yd - yc)^2 + (zo + t*zd - zc)^2  = r*r
       // (xd^2 + yd^2 + zd^2)* t^2 + 2 * ((xo-xc)*xd  + (yo-yc)*yd + (zo-zc)*zd)*t + ((xo-xc)^2 + (yo-yc)^2 + (zo-zc)^2) = r*r
       //
-      
+      //    (x0 + t*xd - xc)^2
+      // == ((xo - xc) + t*xd)^2
+      // == ((xo - xc)^2 + 2 * (xo - xc) * xd * t + xd^2 * t^2
       Eigen::Vector3f oc = ray.origin() - center_;
 
       float a = ray.direction().dot(ray.direction());
-      float b = 2.0f * oc.dot(ray.direction());
+      float b = oc.dot(ray.direction());
       float c = oc.dot(oc) - radius_ * radius_;
-      float discriminant = b * b - 4.0f * a * c;
+      float discriminant = b * b - a * c;
 
+      // std::printf("for Ray: origin = (%f, %f, %f), direction = (%f, %f, %f)\n"
+      // 		  "for Sphere: origin = (%f, %f, %f), radius = %f\n"
+      // 		  "qparams:\na = %f\nb = %f\nc = %f\ndisc = %f\n",
+      // 		  ray.origin().x(), ray.origin().y(), ray.origin().z(),
+      // 		  ray.direction().x(), ray.direction().y(), ray.direction().z(),
+      // 		  center_.x(), center_.y(), center_.z(), radius_,
+      // 		  a, b, c, discriminant);
+      
+		  
       return QuadraticParams{a, b, c, discriminant};
     }
     

@@ -15,6 +15,7 @@
 #include "work_partition.cuh"
 #include "ray.cuh"
 #include "scene_object.cuh"
+#include "trigsphere.cuh"
 #include "variant.cuh"
 #include "viewport.cuh"
 
@@ -28,15 +29,16 @@ namespace config {
 
   rt::Viewport make_viewport()
   {
-    return rt::Viewport(Eigen::Vector3f(0.0f,  0.0f,  0.0f),  // origin
-			Eigen::Vector3f(4.0f,  0.0f,  0.0f),  // horizontal extent
-			Eigen::Vector3f(0.0f,  -2.0f,  0.0f),  // vertical extent
-			Eigen::Vector3f(-2.0f, 1.0f, -1.0f)); // upper left corner
+    return rt::Viewport(Eigen::Vector3f(0.0f, 0.0f, 0.0f),
+			Eigen::Vector3f(0.0f, 0.0f, -1.0f),
+			Eigen::Vector3f(0.0f, 1.0f, 0.0f),
+			20.0f,
+			2.0f);
   }
 }
 
 __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
-					      const rt::ArrayView<rt::Sphere, 1> &spheres,
+					      const rt::ArrayView<rt::SceneObject, 3> &spheres,
 					      const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
   auto point_color = Eigen::Vector3f{0.0f, 0.0f, 1.0f};
@@ -71,7 +73,7 @@ __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
 
 __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 				     const rt::Ray &r,
-				     const rt::ArrayView<rt::Sphere, 1> &spheres,
+				     const rt::ArrayView<rt::SceneObject, 3> &spheres,
 				     const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
   auto inf = float(INFINITY);
@@ -102,7 +104,7 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 
 
 __global__ void render(rt::Viewport viewport,
-		       rt::ArrayView<rt::Sphere, 1> spheres,
+		       rt::ArrayView<rt::SceneObject, 3> spheres,
 		       rt::ArrayView<rt::DirectionalLight, 1> lights,
 		       rt::ImageBufferView img)
 {
@@ -122,7 +124,7 @@ __global__ void render(rt::Viewport viewport,
     std::printf("down right %f %f %f\n", dr.direction().x(), dr.direction().y(), dr.direction().z());
     std::printf("center %f %f %f\n", center.direction().x(), center.direction().y(), center.direction().z());
   }
-  
+
   rt::MultisampleMesh msmesh(img.width(), img.height());
   
   if (row < img.height() && col < img.width()) {
@@ -168,16 +170,20 @@ int main(int argc, char **argv)
 
   std::printf("running (%lu, %lu) blocks\n", w_partition.elements_per_thread, h_partition.elements_per_thread);
 
-  auto viewport = config::make_viewport();//.translate(Eigen::Vector3f(1.0, 1.0, 0.0));;
-  rt::Array<rt::Sphere, 1> spheres({rt::Sphere(Eigen::Vector3f(1.0f, 1.0f, -2.0f), 0.5f)});
-					 // rt::Triangle(Eigen::Vector3f( 0.0f, 1.0f, -2.0f),
-					 // 	      Eigen::Vector3f(-1.0f,-0.5f, -2.0f),
-					 // 	      Eigen::Vector3f( 1.0f,-0.5f, -2.0f)),
+  Eigen::Vector3f tc(1.5f, 0.0f, -8.5f);
+
+  
+  auto viewport = config::make_viewport();//.translate(Eigen::Vector3f(0.0, 1.0f, 0.0f));
+  rt::Array<rt::SceneObject, 3> spheres({rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
+					 rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
+					 rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
+						      tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
+						      tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f))});
 					 // rt::Triangle(Eigen::Vector3f( -2.0f, 1.0f, -2.0f),
 					 // 	      Eigen::Vector3f( -1.0f,-0.5f, -2.0f),
 					 // 	      Eigen::Vector3f( -3.0f,-0.5f, -2.0f))});
 
-  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(1.0f, 0.0f, -1.0f),
+  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(2.25, 1.0f, -10.f) - tc,
                                                                   Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});
   
   render<<<blocks, threads>>>(viewport,
@@ -188,6 +194,13 @@ int main(int argc, char **argv)
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());
 
+  for (auto r = 0; r < (img.height() / 2);  ++r) {
+    for (auto c = 0; c < img.width(); ++c) {
+      auto lhs = r * img.width() + c;
+      auto rhs = (img.height() - r) * img.width() + c;
+      std::swap(img.buffer()[lhs], img.buffer()[rhs]);
+    }
+  }
   std::printf("writing %s...\n", argv[1]);
   stbi_write_hdr(argv[1], img.width(), img.height(), 3, &(img.buffer()[0][0]));
   std::printf("done!\n");
