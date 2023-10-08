@@ -21,7 +21,14 @@ namespace rt {
       Eigen::Vector3f dir = up_left_ + h_percentage * horizontal_dir_ + v_percentage * vertical_dir_;
       return Ray(origin_, dir);
     }
-    
+
+    __host__ __device__ Viewport translate(Eigen::Vector3f offset) const
+    {
+      return Viewport(origin_ + offset,
+		      horizontal_dir_,
+		      vertical_dir_,
+		      up_left_ + offset);
+    }
   private:
     Eigen::Vector3f origin_;
     Eigen::Vector3f horizontal_dir_;
