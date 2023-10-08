@@ -22,6 +22,9 @@ namespace rt {
 	std::printf("ld: (%f, %f, %f) * p = %f\n",
 		    normal_.x(), normal_.y(), normal_.z(),
 		    intercept_);
+	float side = (normal_.dot(point_inside) - intercept_) > 0 ? 1.0f : -1.0f;
+	normal_ *= side;
+	intercept_ *= side;
       }
 
       __host__ __device__ bool is_inside(Eigen::Vector3f point) const

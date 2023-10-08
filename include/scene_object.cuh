@@ -10,17 +10,17 @@ namespace rt {
   class SceneObject {
   public:
 
-    SceneObject() = default;
+    __host__ __device__ SceneObject() = default;
     
-    SceneObject(Sphere sphere)
+    __host__ __device__ SceneObject(Sphere sphere)
       : object_(std::move(sphere))
     { }
 
-    SceneObject(Plane plane)
+    __host__ __device__ SceneObject(Plane plane)
       : object_(std::move(plane))
     { }
 
-    SceneObject(Triangle triangle)
+    __host__ __device__ SceneObject(Triangle triangle)
       : object_(std::move(triangle))
     { }
     
