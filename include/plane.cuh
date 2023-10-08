@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 
+#include "interval.cuh"
 #include "optional.cuh"
 
 namespace rt {

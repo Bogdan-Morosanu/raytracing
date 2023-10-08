@@ -130,9 +130,14 @@ namespace rt {
   public:
     __host__ __device__ Variant();
     
-    template <typename T>
+    template <typename T, typename Guard = 
+	      typename std::enable_if<!internal::AllSame<T, Variant<Args...>>::value>::type>
     __host__ __device__ Variant(T &&t);
 
+    __host__ __device__ Variant(const Variant &);
+
+    __host__ __device__ Variant &operator = (const Variant &);
+    
     template <typename Function>
     __host__ __device__
     typename internal::VisitResult<Function, Args...>::Type
@@ -185,14 +190,42 @@ namespace rt {
   { }
 
   template <typename... Args>
-  template <typename T>
+  template <typename T, typename Guard>
   __host__ __device__ Variant<Args...>::Variant(T &&t)
-    : current_(internal::IndexOf<typename std::decay<T>::type, Args...>::value)
+    : current_(internal::IndexOf<typename std::decay<T>::type, Args...>::value) 
   {
     using ValueType = typename std::decay<T>::type;
     constexpr auto idx = internal::IndexOf<ValueType, Args...>::value;
     new (ptr<idx>()) ValueType(std::forward<T>(t));
   }
+
+  template <typename... Args>
+  __host__ __device__ Variant<Args...>::Variant(const Variant &other)
+    : current_(other.current_)
+  {
+    auto copy_visitor = [&other](auto &place)
+			{
+			  using Type = typename std::decay<decltype(place)>::type;
+			  constexpr auto idx = internal::IndexOf<Type, Args...>::value;
+			  new (&place) Type(*other.ptr<idx>());
+			};
+
+    this->visit(copy_visitor);
+  }
+
+  template <typename... Args>
+  __host__ __device__ Variant<Args...>&
+  Variant<Args...>::operator = (const Variant &other)
+  {
+    // guard against blowup on *this = *this
+    if (this != &other) {
+      this->~Variant();
+      new (this) Variant(other);
+    }
+
+    return *this;
+  }
+  
 
   namespace internal {
     template <typename ... Args>
@@ -259,7 +292,6 @@ namespace rt {
     return internal::VisitImpl<Args...>::
       template do_visit(std::forward<Function>(f), *this);
   }
-
   
   template <typename... Args>
   template <typename Function>

@@ -15,7 +15,6 @@
 #include "work_partition.cuh"
 #include "ray.cuh"
 #include "scene_object.cuh"
-#include "trigsphere.cuh"
 #include "variant.cuh"
 #include "viewport.cuh"
 
@@ -38,17 +37,17 @@ namespace config {
 }
 
 __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
-					      const rt::ArrayView<rt::SceneObject, 3> &spheres,
+					      const rt::MaterialColorFunction &color_function,
+					      const rt::ArrayView<rt::SceneObject, 3> &objects,
 					      const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
-  auto point_color = Eigen::Vector3f{0.0f, 0.0f, 1.0f};
-  Eigen::Vector3f result = point_color / 256.0f;
+  Eigen::Vector3f result{0.01f, 0.01f, 0.01f};
   
   for (auto &light: lights) {
     auto point_to_light_ray = light.ray_from(hit_result.point);
 
     bool obstructed = false;
-    for (auto &object: spheres) {
+    for (auto &object: objects) {
       if (point_to_light_ray.obstructed_by(object)) {
 	obstructed = true;
 	break;
@@ -62,9 +61,7 @@ __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
     auto scale = -hit_result.normal.dot(point_to_light_ray.hit_result.normal);
     auto light_color = point_to_light_ray.color;
     if (scale > 0) {
-      result += scale * Eigen::Vector3f{light_color.x() * point_color.x(),
-					light_color.y() * point_color.y(),
-					light_color.z() * point_color.z()};
+      result += scale * color_function(light_color);
     }
   }
 
@@ -73,27 +70,36 @@ __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
 
 __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 				     const rt::Ray &r,
-				     const rt::ArrayView<rt::SceneObject, 3> &spheres,
+				     const rt::ArrayView<rt::SceneObject, 3> &objects,
 				     const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
   auto inf = float(INFINITY);
   auto t_interval = rt::Interval(0, inf);
   auto lowest_t = inf;
+  auto hit_index = 0u;
   rt::Optional<rt::HitResult> hit_result;
 
   // hitting geometry
-  for (auto &s : spheres) {
-    auto maybe_hit_result = s.hit(r, t_interval);
+  auto i = 0u;
+  for (auto &object : objects) {
+    auto maybe_hit_result = object.hit(r, t_interval);
     if (maybe_hit_result.is_valid()) {
       if (maybe_hit_result.value().t < lowest_t) {
 	lowest_t = maybe_hit_result.value().t;
 	hit_result = maybe_hit_result;
+	hit_index = i;
       }
     }
+    i++;
   }
 
   if (hit_result) {
-    return simple_light_color(hit_result.value(), spheres, lights);
+    auto bounce_result = objects[hit_index].bounce(r,
+						   hit_result.value().point,
+						   hit_result.value().normal);
+    return simple_light_color(hit_result.value(),
+			      bounce_result.color_function,
+			      objects, lights);
   }
   
   // background
@@ -104,7 +110,7 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 
 
 __global__ void render(rt::Viewport viewport,
-		       rt::ArrayView<rt::SceneObject, 3> spheres,
+		       rt::ArrayView<rt::SceneObject, 3> objects,
 		       rt::ArrayView<rt::DirectionalLight, 1> lights,
 		       rt::ImageBufferView img)
 {
@@ -143,7 +149,7 @@ __global__ void render(rt::Viewport viewport,
 
     for (auto &s : samples) {
       auto ray = viewport.compute_ray(s.x(), s.y());
-      img.buffer()[pixel_index] += color_ray(img.width(), img.height(), ray, spheres, lights);
+      img.buffer()[pixel_index] += color_ray(img.width(), img.height(), ray, objects, lights);
     }
     
     img.buffer()[pixel_index] /= float(samples.size());
@@ -174,14 +180,14 @@ int main(int argc, char **argv)
 
   
   auto viewport = config::make_viewport();//.translate(Eigen::Vector3f(0.0, 1.0f, 0.0f));
-  rt::Array<rt::SceneObject, 3> spheres({rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
-					 rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
-					 rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
-						      tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
-						      tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f))});
-					 // rt::Triangle(Eigen::Vector3f( -2.0f, 1.0f, -2.0f),
-					 // 	      Eigen::Vector3f( -1.0f,-0.5f, -2.0f),
-					 // 	      Eigen::Vector3f( -3.0f,-0.5f, -2.0f))});
+  rt::Array<rt::SceneObject, 3> spheres({rt::SceneObject(rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
+							 rt::diffuse_blue()),
+					 rt::SceneObject(rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
+							 rt::diffuse_red()),
+					 rt::SceneObject(rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
+								      tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
+								      tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f)),
+							 rt::diffuse_green())});
 
   rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(2.25, 1.0f, -10.f) - tc,
                                                                   Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});

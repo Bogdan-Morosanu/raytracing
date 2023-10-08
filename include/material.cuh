@@ -10,10 +10,10 @@ namespace rt {
 
     explicit
     __device__ MaterialColorFunction(Eigen::Vector3f multiplier)
-      : multiplier_(multriplier)
+      : multiplier_(multiplier)
     { }
 
-    __device__ Eigen::Vector3f operator()(Eigen::Vector3f color)
+    __device__ Eigen::Vector3f operator()(Eigen::Vector3f color) const
     {
       return Eigen::Vector3f{
           color.x() * multiplier_.x(),
@@ -41,15 +41,45 @@ namespace rt {
   class DiffuseMaterial {
   public:
 
+    explicit
+    __host__ __device__ DiffuseMaterial(Eigen::Vector3f color)
+      : color_(color)
+    { }
+    
     __device__ BounceResult bounce(const Ray &incoming,
 				   Eigen::Vector3f intersect,
-				   Eigen::Vector3f normal)
+				   Eigen::Vector3f normal) const
     {
-
+      // todo: implement bounce ray
+      return BounceResult{Ray{intersect, normal}, MaterialColorFunction{color_}};
     }
 
   private:
-    Eigen::Vector3f color_;
-    Eigen::Vector3f attenuation_;
+    Eigen::Vector3f color_;    
   };
+
+  inline __host__ __device__ DiffuseMaterial diffuse_red()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{1.0f, 0.0f, 0.0f}};
+  }
+
+  inline __host__ __device__ DiffuseMaterial diffuse_green()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{0.0f, 1.0f, 0.0f}};
+  }
+
+  inline __host__ __device__ DiffuseMaterial diffuse_blue()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{0.0f, 0.0f, 1.0f}};
+  }
+
+  inline __host__ __device__ DiffuseMaterial diffuse_white()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{1.0f, 1.0f, 1.0f}};
+  }
+
+  inline __host__ __device__ DiffuseMaterial diffuse_black()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{0.01f, 0.01f, 0.01f}};
+  }
 }

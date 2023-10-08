@@ -1,46 +1,60 @@
 #pragma once
 
-#include "sphere.cuh"
+#include "material.cuh"
 #include "plane.cuh"
+#include "sphere.cuh"
 #include "triangle.cuh"
 #include "variant.cuh"
 
 namespace rt {
 
+  using GeometryVariant = Variant<Sphere, Plane, Triangle>;
+
+  using MaterialVariant = Variant<DiffuseMaterial>;
+  
   class SceneObject {
   public:
 
     __host__ __device__ SceneObject() = default;
     
-    __host__ __device__ SceneObject(Sphere sphere)
-      : object_(std::move(sphere))
-    { }
-
-    __host__ __device__ SceneObject(Plane plane)
-      : object_(std::move(plane))
-    { }
-
-    __host__ __device__ SceneObject(Triangle triangle)
-      : object_(std::move(triangle))
+    __host__ __device__ SceneObject(GeometryVariant geometry,
+				    MaterialVariant material)
+      : geometry_(std::move(geometry))
+      , material_(std::move(material))
     { }
     
     __device__ bool can_hit(const Ray &r) const
     {
-      auto can_hit_visitor = [&r](auto &o) { return o.can_hit(r); };
-      return object_.visit(can_hit_visitor);
+      auto can_hit_visitor = [&r](auto &geometry) { return geometry.can_hit(r); };
+      return geometry_.visit(can_hit_visitor);
     }
 
     __device__ Optional<HitResult> hit(const Ray &r,
 				       const Interval &t_interval) const
     {
-      auto hit_visitor = [&r, &t_interval](auto &object) -> Optional<HitResult>
+      auto hit_visitor = [&r, &t_interval](auto &geometry)
       			 {
-      			   return object.hit(r, t_interval);
+      			   return geometry.hit(r, t_interval);
       			 };
-      return object_.visit(hit_visitor);
+      return geometry_.visit(hit_visitor);
     }
-    
+
+    __device__ BounceResult bounce(const Ray &incoming,
+				   Eigen::Vector3f intersect,
+				   Eigen::Vector3f normal) const
+    {
+      auto bounce_visitor = [&incoming, &intersect, &normal](auto &material)
+			    {
+			      return material.bounce(incoming,
+						     intersect,
+						     normal);
+			    };
+
+      return material_.visit(bounce_visitor);
+    }
+
   private:
-    Variant<Sphere, Plane, Triangle> object_;
+    Variant<Sphere, Plane, Triangle> geometry_;
+    Variant<DiffuseMaterial> material_;
   };
 }
