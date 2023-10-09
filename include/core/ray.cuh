@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Eigen/Core>
+
 namespace rt {
 
   class Ray {

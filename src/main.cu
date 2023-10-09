@@ -8,15 +8,15 @@
 
 #include <curand_kernel.h>
 
-#include "alloc.cuh"
 #include "check_error.cuh"
-#include "light.cuh"
-#include "multisample_mesh.cuh"
-#include "work_partition.cuh"
-#include "ray.cuh"
-#include "scene_object.cuh"
-#include "variant.cuh"
-#include "viewport.cuh"
+#include "container/alloc.cuh"
+#include "container/variant.cuh"
+#include "core/light.cuh"
+#include "core/ray.cuh"
+#include "core/scene_object.cuh"
+#include "pipeline/multisample_mesh.cuh"
+#include "pipeline/work_partition.cuh"
+#include "pipeline/viewport.cuh"
 
 namespace config {
 

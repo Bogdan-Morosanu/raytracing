@@ -2,8 +2,8 @@
 
 #include <Eigen/Dense>
 
-#include "interval.cuh"
-#include "optional.cuh"
+#include "core/interval.cuh"
+#include "container/optional.cuh"
 
 namespace rt {
 

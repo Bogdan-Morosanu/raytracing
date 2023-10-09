@@ -1,10 +1,10 @@
 #pragma once
 
-#include "material.cuh"
-#include "plane.cuh"
-#include "sphere.cuh"
-#include "triangle.cuh"
-#include "variant.cuh"
+#include "core/material.cuh"
+#include "core/plane.cuh"
+#include "core/sphere.cuh"
+#include "core/triangle.cuh"
+#include "container/variant.cuh"
 
 namespace rt {
 

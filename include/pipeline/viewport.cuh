@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ray.cuh"
+#include "core/ray.cuh"
 
 namespace rt {
   class Viewport {

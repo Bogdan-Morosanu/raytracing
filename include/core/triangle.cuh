@@ -2,10 +2,10 @@
 
 #include <Eigen/Dense>
 
-#include "optional.cuh"
-#include "hit_result.cuh"
-#include "interval.cuh"
-#include "ray.cuh"
+#include "container/optional.cuh"
+#include "core/hit_result.cuh"
+#include "core/interval.cuh"
+#include "core/ray.cuh"
 
 namespace rt {
 

@@ -4,10 +4,10 @@
 
 #include <Eigen/Dense>
 
-#include "ray.cuh"
-#include "hit_result.cuh"
-#include "scene_object.cuh"
-#include "sphere.cuh"
+#include "core/ray.cuh"
+#include "core/hit_result.cuh"
+#include "core/scene_object.cuh"
+#include "core/sphere.cuh"
 
 
 namespace rt {

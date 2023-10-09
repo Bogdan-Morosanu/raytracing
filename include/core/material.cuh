@@ -1,7 +1,7 @@
 #pragma once
 
-#include "alloc.cuh"
-#include "ray.cuh"
+#include "container/alloc.cuh"
+#include "core/ray.cuh"
 
 namespace rt {
 

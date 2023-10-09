@@ -3,7 +3,7 @@
 #include <array>
 #include <Eigen/Dense>
 
-#include "alloc.cuh"
+#include "container/alloc.cuh"
 
 namespace rt {
 

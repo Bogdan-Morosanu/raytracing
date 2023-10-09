@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdlib>
+
 namespace rt {
   struct WorkPartition {
     bool is_uneven_partition;
