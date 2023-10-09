@@ -11,6 +11,7 @@
 #include "check_error.cuh"
 #include "container/alloc.cuh"
 #include "container/variant.cuh"
+#include "container/vector.cuh"
 #include "core/light.cuh"
 #include "core/ray.cuh"
 #include "core/scene_object.cuh"
@@ -38,7 +39,7 @@ namespace config {
 
 __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
 					      const rt::MaterialColorFunction &color_function,
-					      const rt::ArrayView<rt::SceneObject, 3> &objects,
+					      const rt::VectorView<rt::SceneObject> &objects,
 					      const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
   Eigen::Vector3f result{0.01f, 0.01f, 0.01f};
@@ -70,7 +71,7 @@ __device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
 
 __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 				     const rt::Ray &r,
-				     const rt::ArrayView<rt::SceneObject, 3> &objects,
+				     const rt::VectorView<rt::SceneObject> &objects,
 				     const rt::ArrayView<rt::DirectionalLight, 1> &lights)
 {
   auto inf = float(INFINITY);
@@ -110,7 +111,7 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 
 
 __global__ void render(rt::Viewport viewport,
-		       rt::ArrayView<rt::SceneObject, 3> objects,
+		       rt::VectorView<rt::SceneObject> objects,
 		       rt::ArrayView<rt::DirectionalLight, 1> lights,
 		       rt::ImageBufferView img)
 {
@@ -180,14 +181,14 @@ int main(int argc, char **argv)
 
   
   auto viewport = config::make_viewport();//.translate(Eigen::Vector3f(0.0, 1.0f, 0.0f));
-  rt::Array<rt::SceneObject, 3> spheres({rt::SceneObject(rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
-							 rt::diffuse_blue()),
-					 rt::SceneObject(rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
-							 rt::diffuse_red()),
-					 rt::SceneObject(rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
-								      tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
-								      tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f)),
-							 rt::diffuse_green())});
+  rt::Vector<rt::SceneObject> spheres({rt::SceneObject(rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
+						       rt::diffuse_blue()),
+				       rt::SceneObject(rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
+						       rt::diffuse_red()),
+				       rt::SceneObject(rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
+								    tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
+								    tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f)),
+						       rt::diffuse_green())});
 
   rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(2.25, 1.0f, -10.f) - tc,
                                                                   Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});
