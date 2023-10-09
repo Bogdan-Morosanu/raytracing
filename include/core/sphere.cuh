@@ -56,6 +56,15 @@ namespace rt {
 	  }
 	}
 	
+      } else if (qparams.discriminant == 0.0f) {
+	auto t = (-qparams.b) / (qparams.a);
+	if (t_interval.contains(t)) {
+	  HitResult res;
+	  res.point = ray.point_at_param(t);
+	  res.normal = (res.point - center_).normalized();
+	  res.t = t;
+	  return res;
+	}
       }
 
       // no valid param

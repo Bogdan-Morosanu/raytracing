@@ -11,15 +11,15 @@ namespace rt {
       , direction_(d)
     { }
 
-    __device__ const Eigen::Vector3f &origin() const { return origin_; }
+    __host__ __device__ const Eigen::Vector3f &origin() const { return origin_; }
 
-    __device__ const Eigen::Vector3f &direction() const { return direction_; }
+    __host__ __device__ const Eigen::Vector3f &direction() const { return direction_; }
 
-    __device__ Eigen::Vector3f &origin() { return origin_; }
+    __host__ __device__ Eigen::Vector3f &origin() { return origin_; }
 
-    __device__ Eigen::Vector3f &direction() { return direction_; }
+    __host__ __device__ Eigen::Vector3f &direction() { return direction_; }
 
-    __device__ Eigen::Vector3f point_at_param(float t) const
+    __host__ __device__ Eigen::Vector3f point_at_param(float t) const
     {
       return origin_ + t * direction_;
     }

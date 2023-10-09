@@ -12,6 +12,7 @@ enable_testing()
 add_executable(
   raytest
   triangletest.cu
+  spheretest.cu
   ../src/check_error.cu
 )
 
