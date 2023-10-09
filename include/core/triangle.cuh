@@ -19,17 +19,14 @@ namespace rt {
 	: normal_(compute_normal(line_start, line_end, point_inside))
 	, intercept_(compute_intercept(line_start, normal_))
       {
-	std::printf("ld: (%f, %f, %f) * p = %f\n",
-		    normal_.x(), normal_.y(), normal_.z(),
-		    intercept_);
-	float side = (normal_.dot(point_inside) - intercept_) > 0 ? 1.0f : -1.0f;
+	float side = (normal_.dot(point_inside) - intercept_) > -1e-6f ? 1.0f : -1.0f;
 	normal_ *= side;
 	intercept_ *= side;
       }
 
       __host__ __device__ bool is_inside(Eigen::Vector3f point) const
       {
-	return (normal_.dot(point) - intercept_) > 0.0f;
+	return (normal_.dot(point) - intercept_) > -1e-6f;
       }
       
     private:
@@ -39,14 +36,14 @@ namespace rt {
 					    Eigen::Vector3f point_inside)
       {
 	Eigen::Vector3f dir = (line_end - line_start).normalized();
-	return (point_inside - dir.dot(point_inside) * dir);
+	return dir.cross(point_inside);
       }
 
       __host__ __device__
       static float compute_intercept(Eigen::Vector3f origin,
 				     Eigen::Vector3f normal)
       {
-	return origin.dot(normal);
+	return normal.dot(origin);
       }
 					       
       Eigen::Vector3f normal_;
@@ -58,16 +55,12 @@ namespace rt {
   public:
     Triangle(Eigen::Vector3f a, Eigen::Vector3f b, Eigen::Vector3f c)
       : plane_normal_(((a-b).cross(c-a)).normalized())
-      , plane_intercept_(a.dot(plane_normal_))
+      , plane_intercept_()
       , disc_ab_to_c_(a, b, c)
       , disc_bc_to_a_(b, c, a)
       , disc_ca_to_b_(c, a, b)
     {
-      std::printf("a %f %f %f\n", a.x(), a.y(), a.z());
-      std::printf("b %f %f %f\n", b.x(), b.y(), b.z());
-      std::printf("c %f %f %f\n", c.x(), c.y(), c.z());
-      std::printf("plane_normal %f %f %f\n", plane_normal_.x(), plane_normal_.y(), plane_normal_.z());
-      std::printf("plane_intercept %f\n", plane_intercept_);
+      plane_intercept_ = plane_normal_.dot(a);
     }
 
     __device__ bool can_hit(const Ray &ray) const
@@ -108,11 +101,6 @@ namespace rt {
     
   private:
 
-    // __host__ __device__ Eigen::Vector3f plane_coords(Eigen::Vector3f p) const
-    // {
-      
-    // }
-    
     Eigen::Vector3f plane_normal_;
     float plane_intercept_;
     internal::LineDiscriminator disc_ab_to_c_;

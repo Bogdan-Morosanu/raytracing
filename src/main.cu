@@ -138,10 +138,10 @@ __global__ void render(rt::Viewport viewport,
     int pixel_index = row * img.width() + col;
     float u = float(col) / img.width();
     float v = float(row) / img.height();
-    if (int(u * img.width()) % 64 == 0 || int(v * img.height()) % 64 == 0) {
-      img.buffer()[pixel_index] = Eigen::Vector3f{0.1f, 0.1f, 0.1f};
-      return;
-    }
+    // if (int(u * img.width()) % 64 == 0 || int(v * img.height()) % 64 == 0) {
+    //   img.buffer()[pixel_index] = Eigen::Vector3f{0.1f, 0.1f, 0.1f};
+    //   return;
+    // }
     
     Eigen::Vector2f pixel(u, v);
     
@@ -177,20 +177,36 @@ int main(int argc, char **argv)
 
   std::printf("running (%lu, %lu) blocks\n", w_partition.elements_per_thread, h_partition.elements_per_thread);
 
-  Eigen::Vector3f tc(1.5f, 0.0f, -8.5f);
-
   
   auto viewport = config::make_viewport();//.translate(Eigen::Vector3f(0.0, 1.0f, 0.0f));
-  rt::Vector<rt::SceneObject> spheres({rt::SceneObject(rt::Sphere(Eigen::Vector3f(2.25f, 1.0f,  -10.0f), 0.5f),
-						       rt::diffuse_blue()),
-				       rt::SceneObject(rt::Sphere(Eigen::Vector3f(-2.25f, -1.0f, -10.0f), 0.5f),
-						       rt::diffuse_red()),
-				       rt::SceneObject(rt::Triangle(tc + Eigen::Vector3f(0.0f, 1.0f, 0.0f),
-								    tc + Eigen::Vector3f(-0.5f, 0.0f, 0.0f),
-								    tc + Eigen::Vector3f(0.5f, 0.0f, 0.0f)),
-						       rt::diffuse_green())});
+  auto line_start = Eigen::Vector3f(-2.25f, -1.0f, -10.f);
+  auto line_dir = Eigen::Vector3f(2.25f, 1.0f, -3.0f);
+  auto line_up = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+  auto line_dir_normed = line_dir.normalized();
+  line_up = (line_up - line_up.dot(line_dir_normed) * line_dir_normed).normalized();
+  Eigen::Vector3f line_horizontal = line_up.cross(line_dir_normed);
+  
+  Eigen::Vector3f t1_center = line_start + 0.33 * line_dir;
+  Eigen::Vector3f t1_a = t1_center + 0.5f * line_up;
+  Eigen::Vector3f t1_b = t1_center + 0.5f * line_horizontal - 0.5f * line_up;
+  Eigen::Vector3f t1_c = t1_center - 0.5f * line_horizontal - 0.5f * line_up;
 
-  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{Eigen::Vector3f(2.25, 1.0f, -10.f) - tc,
+  Eigen::Vector3f t2_center = line_start + 1.3f * line_dir;
+  Eigen::Vector3f t2_a = t2_center + 0.75f * line_up;
+  Eigen::Vector3f t2_b = t2_center + 0.75f * line_horizontal - 0.75f * line_up;
+  Eigen::Vector3f t2_c = t2_center - 0.75f * line_horizontal - 0.75f * line_up;
+  
+  rt::Vector<rt::SceneObject> spheres({rt::SceneObject(rt::Sphere(line_start + 0.0f * line_dir, 0.25f),
+						       rt::diffuse_red()),
+				       rt::SceneObject(rt::Triangle(t1_a, t1_b, t1_c), rt::diffuse_yellow()),
+				       rt::SceneObject(rt::Sphere(line_start + 0.8f * line_dir, 0.5f),
+						       rt::diffuse_green()),
+				       rt::SceneObject(rt::Triangle(t2_a, t2_b, t2_c), rt::diffuse_yellow()),
+				       rt::SceneObject(rt::Sphere(line_start + 2.0f * line_dir, 1.0f),
+						       rt::diffuse_blue())});
+
+
+  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{line_dir,
                                                                   Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});
   
   render<<<blocks, threads>>>(viewport,

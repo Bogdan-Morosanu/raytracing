@@ -73,6 +73,16 @@ namespace rt {
     return DiffuseMaterial{Eigen::Vector3f{0.0f, 0.0f, 1.0f}};
   }
 
+  inline __host__ __device__ DiffuseMaterial diffuse_yellow()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{1.0f, 1.0f, 0.0f}};
+  }
+
+  inline __host__ __device__ DiffuseMaterial diffuse_purple()
+  {
+    return DiffuseMaterial{Eigen::Vector3f{1.0f, 0.0f, 1.0f}};
+  }
+
   inline __host__ __device__ DiffuseMaterial diffuse_white()
   {
     return DiffuseMaterial{Eigen::Vector3f{1.0f, 1.0f, 1.0f}};

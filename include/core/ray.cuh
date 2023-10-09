@@ -6,7 +6,7 @@ namespace rt {
 
   class Ray {
   public:    
-    __device__ Ray(const Eigen::Vector3f &o, const Eigen::Vector3f &d)
+    __host__ __device__ Ray(const Eigen::Vector3f &o, const Eigen::Vector3f &d)
       : origin_(o)
       , direction_(d)
     { }
