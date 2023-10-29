@@ -23,7 +23,7 @@
 
 namespace config {
 
-  static constexpr std::size_t MAX_RECURSION_DEPTH = 50;
+  static constexpr std::size_t MAX_RECURSION_DEPTH = 8;
 
   void print_help_and_exit(const char *name)
   {
@@ -33,8 +33,8 @@ namespace config {
 
   rt::Viewport make_viewport()
   {
-    return rt::Viewport(Eigen::Vector3f(0.0f, 0.0f, 0.0f),
-			Eigen::Vector3f(0.0f, 0.0f, -1.0f),
+    return rt::Viewport(Eigen::Vector3f(0.0f, 4.0f, 6.0f),
+			Eigen::Vector3f(0.0f, 0.0f, -20.0f),
 			Eigen::Vector3f(0.0f, 1.0f, 0.0f),
 			20.0f,
 			2.0f);
@@ -82,19 +82,19 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 						   hit_result.value().normal,
 						   rand_state);
 
-    auto maybe_light_color = light_color(hit_result.value(),
-					 objects, lights);
+    auto maybe_incoming_light = light_color(hit_result.value(), hit_index,
+					    objects, lights, r);
 
-    auto incoming = color_ray(width, height, bounce_result.ray,
-			      objects, lights, rand_state, recursion_depth + 1u);
+    auto incoming_objects = color_ray(width, height, bounce_result.ray,
+				      objects, lights, rand_state, recursion_depth + 1u);
 
     auto &material_color_function = bounce_result.color_function;
-    if (maybe_light_color) {
-      return material_color_function(incoming) +
-	material_color_function(maybe_light_color.value());
+    if (maybe_incoming_light) {
+      return material_color_function(incoming_objects) +
+	material_color_function(maybe_incoming_light.value());
 
     } else {
-      return material_color_function(incoming);
+      return material_color_function(incoming_objects);
     }
   }
   
@@ -186,16 +186,26 @@ int main(int argc, char **argv)
   auto line_dir_normed = line_dir.normalized();
   line_up = (line_up - line_up.dot(line_dir_normed) * line_dir_normed).normalized();
   Eigen::Vector3f line_horizontal = line_up.cross(line_dir_normed);
-  
-  Eigen::Vector3f t1_center = line_start + 0.33 * line_dir;
+  std::printf("horizontal %f %f %f\n", line_horizontal.x(), line_horizontal.y(), line_horizontal.z());
+  Eigen::Vector3f t1_center = line_start + 0.6 * line_dir;
   Eigen::Vector3f t1_a = t1_center + 0.5f * line_up;
-  Eigen::Vector3f t1_b = t1_center + 0.5f * line_horizontal - 0.5f * line_up;
-  Eigen::Vector3f t1_c = t1_center - 0.5f * line_horizontal - 0.5f * line_up;
+  Eigen::Vector3f t1_b = t1_center + 0.5f * line_horizontal - 0.5f / 1.5f * line_up;
+  Eigen::Vector3f t1_c = t1_center - 0.5f * line_horizontal - 0.5f / 1.5f * line_up;
 
-  Eigen::Vector3f t2_center = line_start + 1.3f * line_dir;
+  Eigen::Vector3f t2_center = line_start + 1.1f * line_dir;
   Eigen::Vector3f t2_a = t2_center + 0.75f * line_up;
-  Eigen::Vector3f t2_b = t2_center + 0.75f * line_horizontal - 0.75f * line_up;
-  Eigen::Vector3f t2_c = t2_center - 0.75f * line_horizontal - 0.75f * line_up;
+  Eigen::Vector3f t2_b = t2_center + 0.75f * line_horizontal - 0.75f / 1.5f * line_up;
+  Eigen::Vector3f t2_c = t2_center - 0.75f * line_horizontal - 0.75f / 1.5f * line_up;
+
+  Eigen::Vector3f mirror_ul{-4.5f,  2.0f, -21.0f};
+  Eigen::Vector3f mirror_dl{-4.5f, -2.0f, -21.0f};
+  Eigen::Vector3f mirror_ur{ 4.5f,  2.0f, -21.0f};
+  Eigen::Vector3f mirror_dr{ 4.5f, -2.0f, -21.0f};
+
+  Eigen::Vector3f mirror_frame_ul{-4.6f,  2.1f, -21.1f};
+  Eigen::Vector3f mirror_frame_dl{-4.6f, -2.1f, -21.1f};
+  Eigen::Vector3f mirror_frame_ur{ 4.6f,  2.1f, -21.1f};
+  Eigen::Vector3f mirror_frame_dr{ 4.6f, -2.1f, -21.1f};
   
   rt::Vector<rt::SceneObject> spheres({rt::SceneObject(rt::Sphere(line_start + 0.0f * line_dir, 0.25f),
 						       rt::diffuse_red()),
@@ -204,7 +214,23 @@ int main(int argc, char **argv)
 						       rt::diffuse_green()),
 				       rt::SceneObject(rt::Triangle(t2_a, t2_b, t2_c), rt::diffuse_yellow()),
 				       rt::SceneObject(rt::Sphere(line_start + 2.0f * line_dir, 1.0f),
-						       rt::diffuse_blue())});
+						       rt::diffuse_blue()),
+				       rt::SceneObject(rt::Triangle(mirror_ul, mirror_ur, mirror_dl),
+						       rt::metallic_white()),
+				       rt::SceneObject(rt::Triangle(mirror_ur, mirror_dr, mirror_dl),
+						       rt::metallic_white()),
+				       rt::SceneObject(rt::Triangle(mirror_frame_ul,
+								    mirror_frame_ur,
+								    mirror_frame_dl),
+						       rt::diffuse_black()),
+				       rt::SceneObject(rt::Triangle(mirror_frame_ur,
+								    mirror_frame_dr,
+								    mirror_frame_dl),
+						       rt::diffuse_black()),
+				       rt::SceneObject(rt::Sphere(Eigen::Vector3f(-4.5f, 0.0f, -13.0f), 1.0f),
+						       rt::metallic_white()),
+
+    });
 
 
   rt::Vector<rt::DirectionalLight> lights({rt::DirectionalLight{line_dir,

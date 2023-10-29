@@ -134,13 +134,20 @@ namespace rt {
 
   __device__ inline rt::Optional<Eigen::Vector3f>
   light_color(const rt::HitResult &hit_result,
+	      std::size_t hit_index,
 	      const rt::VectorView<rt::SceneObject> &objects,
-	      const rt::VectorView<rt::DirectionalLight> &lights)
+	      const rt::VectorView<rt::DirectionalLight> &lights,
+	      const Ray &viewing_ray)
   {
     rt::Optional<Eigen::Vector3f> result;
   
     for (auto &light: lights) {
       auto point_to_light_ray = light.ray_from(hit_result.point);
+
+      // make sure the light is not illuminating through the surface
+      if (point_to_light_ray.ray.direction().dot(hit_result.normal) < 0) {
+	continue;
+      }
 
       bool obstructed = false;
       for (auto &object: objects) {
@@ -154,14 +161,16 @@ namespace rt {
 	continue;
       }
 
-      auto scale = -hit_result.normal.dot(point_to_light_ray.hit_result.normal);
-      auto light_color = point_to_light_ray.color;
-      if (scale > 0) {
-	if (result) {
-	  result.value() += scale * light_color;
-	} else {
-	  result = Eigen::Vector3f{scale * light_color};
-	}
+      auto color = objects[hit_index].light_bounce(point_to_light_ray.ray,
+						   point_to_light_ray.color,
+						   point_to_light_ray.hit_result.point,
+						   point_to_light_ray.hit_result.normal,
+						   viewing_ray);
+
+      if (result) {
+	result.value() += color;
+      } else {
+	result = Eigen::Vector3f{color};
       }
     }
 

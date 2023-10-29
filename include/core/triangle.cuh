@@ -79,6 +79,7 @@ namespace rt {
       // r.o.transpose() * normal_ + t * r.d.transpose() * normal = intercept
       // t = (intercept - r.o.dot(normal_)) / r.d.dot(normal_)
       auto rdn = ray.direction().dot(plane_normal_);
+
       if (rdn != 0.0f) {
 	auto t = (plane_intercept_ - ray.origin().dot(plane_normal_)) / rdn;
 	auto point = ray.point_at_param(t);
@@ -90,8 +91,8 @@ namespace rt {
 	if (inside) {
 	  if (t_interval.contains(t)) {
 	    // all triangles are two-sided for now
-	    Eigen::Vector3f hit_normal = (rdn < 0) ? plane_normal_ : -plane_normal_;
-	    return HitResult{t, point, hit_normal};
+	    Eigen::Vector3f normal = (rdn < 0) ? plane_normal_ : -plane_normal_;
+	    return HitResult{t, point, normal};
 	  }
 	}
       }

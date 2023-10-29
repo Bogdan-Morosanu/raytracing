@@ -12,7 +12,7 @@ namespace rt {
 
   using GeometryVariant = Variant<Sphere, Plane, Triangle>;
 
-  using MaterialVariant = Variant<DiffuseMaterial>;
+  using MaterialVariant = Variant<DiffuseMaterial, MetallicMaterial>;
   
   class SceneObject {
   public:
@@ -57,8 +57,27 @@ namespace rt {
       return material_.visit(bounce_visitor);
     }
 
+    __device__ Eigen::Vector3f light_bounce(const Ray &incoming_light,
+					    Eigen::Vector3f light_color,
+					    Eigen::Vector3f intersect,
+					    Eigen::Vector3f normal,
+					    const Ray &viewing_direction) const
+    {
+      auto light_bounce_visitor = [&incoming_light, &light_color, &intersect,
+				   &normal, &viewing_direction](auto &material)
+				  {
+				    return material.light_bounce(incoming_light,
+								 light_color,
+								 intersect,
+								 normal,
+								 viewing_direction);
+				  };
+
+      return material_.visit(light_bounce_visitor);
+    }
+
   private:
-    Variant<Sphere, Plane, Triangle> geometry_;
-    Variant<DiffuseMaterial> material_;
+    GeometryVariant geometry_;
+    MaterialVariant material_;
   };
 }
