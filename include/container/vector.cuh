@@ -5,7 +5,7 @@
 
 #include <Eigen/Dense>
 
-#include "check_error.cuh"
+#include "cuda_utils/check_error.cuh"
 
 namespace rt {
   template <typename T>

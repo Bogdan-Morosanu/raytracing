@@ -1,6 +1,6 @@
 #pragma once
 
-#include "check_error.cuh"
+#include "cuda_utils/check_error.cuh"
 
 namespace rt {
   template <typename T>
@@ -14,8 +14,8 @@ namespace rt {
 
   public:
 
-    template <typename IsConstructible =
-	      typename std::enable_if<std::is_default_constructible<T>::value>::type>
+    template <bool IsConstructible = std::is_default_constructible<T>::value,
+	      typename Guard = typename std::enable_if<IsConstructible>::type>
     __host__
     SharedBuffer()
       : SharedBuffer(T{})

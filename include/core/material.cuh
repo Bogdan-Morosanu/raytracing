@@ -2,6 +2,7 @@
 
 #include "container/alloc.cuh"
 #include "core/ray.cuh"
+#include "cuda_utils/curand_state.cuh"
 
 namespace rt {
 
@@ -45,13 +46,19 @@ namespace rt {
     __host__ __device__ DiffuseMaterial(Eigen::Vector3f color)
       : color_(color)
     { }
-    
+
+    // bounces ray off of material and advances random sequence
+    // in rand_state
     __device__ BounceResult bounce(const Ray &incoming,
 				   Eigen::Vector3f intersect,
-				   Eigen::Vector3f normal) const
+				   Eigen::Vector3f normal,
+				   curandState &rand_state) const
     {
       // todo: implement bounce ray
-      return BounceResult{Ray{intersect, normal}, MaterialColorFunction{color_}};
+      auto bounce_delta = random_in_unit_sphere(&rand_state);
+      Eigen::Vector3f bounce_dir = normal + bounce_delta;
+      Eigen::Vector3f ray_origin = intersect;
+      return BounceResult{Ray{ray_origin, bounce_dir}, MaterialColorFunction{color_}};
     }
 
   private:
@@ -60,36 +67,36 @@ namespace rt {
 
   inline __host__ __device__ DiffuseMaterial diffuse_red()
   {
-    return DiffuseMaterial{Eigen::Vector3f{1.0f, 0.0f, 0.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{1.0f/16.0f, 0.0f, 0.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_green()
   {
-    return DiffuseMaterial{Eigen::Vector3f{0.0f, 1.0f, 0.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{0.0f, 1.0f/16.0f, 0.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_blue()
   {
-    return DiffuseMaterial{Eigen::Vector3f{0.0f, 0.0f, 1.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{0.0f, 0.0f, 1.0f/16.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_yellow()
   {
-    return DiffuseMaterial{Eigen::Vector3f{1.0f, 1.0f, 0.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{1.0f/16.0f, 1.0f/16.0f, 0.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_purple()
   {
-    return DiffuseMaterial{Eigen::Vector3f{1.0f, 0.0f, 1.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{1.0f/16.0f, 0.0f, 1.0f/16.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_white()
   {
-    return DiffuseMaterial{Eigen::Vector3f{1.0f, 1.0f, 1.0f}};
+    return DiffuseMaterial{Eigen::Vector3f{1.0f/16.0f, 1.0f/16.0f, 1.0f/16.0f}};
   }
 
   inline __host__ __device__ DiffuseMaterial diffuse_black()
   {
-    return DiffuseMaterial{Eigen::Vector3f{0.01f, 0.01f, 0.01f}};
+    return DiffuseMaterial{Eigen::Vector3f{0.001f, 0.001f, 0.001f}};
   }
 }

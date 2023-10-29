@@ -1,10 +1,12 @@
 #pragma once
 
+
 #include "core/material.cuh"
 #include "core/plane.cuh"
 #include "core/sphere.cuh"
 #include "core/triangle.cuh"
 #include "container/variant.cuh"
+#include "cuda_utils/curand_state.cuh"
 
 namespace rt {
 
@@ -41,13 +43,15 @@ namespace rt {
 
     __device__ BounceResult bounce(const Ray &incoming,
 				   Eigen::Vector3f intersect,
-				   Eigen::Vector3f normal) const
+				   Eigen::Vector3f normal,
+				   curandState &state) const
     {
-      auto bounce_visitor = [&incoming, &intersect, &normal](auto &material)
+      auto bounce_visitor = [&incoming, &intersect, &normal, &state](auto &material)
 			    {
 			      return material.bounce(incoming,
 						     intersect,
-						     normal);
+						     normal,
+						     state);
 			    };
 
       return material_.visit(bounce_visitor);

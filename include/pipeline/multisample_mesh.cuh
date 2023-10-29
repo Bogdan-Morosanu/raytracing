@@ -9,17 +9,24 @@ namespace rt {
 
   class MultisampleMesh {
   public:
-
-    using Samples = DeviceArray<Eigen::Vector2f, 9>;
+    static constexpr std::size_t WIDTH = 11;
+    static constexpr std::size_t HEIGHT = 11;
     
-    __device__ MultisampleMesh(float norm_x, float norm_y)
-      : offsets_{Eigen::Vector2f{-0.5f, -0.5f}, Eigen::Vector2f{0.0f, -0.5f}, Eigen::Vector2f{0.5f, -0.5f},
-                 Eigen::Vector2f{-0.5f,  0.0f}, Eigen::Vector2f{0.0f,  0.0f}, Eigen::Vector2f{0.5f,  0.0f},
-                 Eigen::Vector2f{-0.5f,  0.5f}, Eigen::Vector2f{0.0f,  0.5f}, Eigen::Vector2f{0.5f,  0.5f}}
+    using Samples = DeviceArray<Eigen::Vector2f, WIDTH * HEIGHT>;
+    
+    __host__ MultisampleMesh(float norm_x, float norm_y)
+      : offsets_{}
     {
-      for (auto &o : offsets_) {
-	o.x() /= norm_x;
-	o.y() /= norm_y;
+      constexpr auto DIV_H = float(HEIGHT + 2);
+      constexpr auto DIV_W = float(WIDTH + 2);
+      
+      for (std::size_t r = 0u; r < HEIGHT; ++r) {
+      	float y = (-1.0f + 2.0f * float(r+1) / float(DIV_H)) / norm_y;
+
+      	for (std::size_t c = 0u; c < WIDTH; ++c) {
+      	  float x = (-1.0f + 2.0f * float(c+1) / float(DIV_W)) / norm_x;
+      	  offsets_[r * WIDTH + c] = Eigen::Vector2f{x, y};
+      	}
       }
     }
     
@@ -27,13 +34,13 @@ namespace rt {
     {
       Samples retval;
 
-      for (auto i = 0; i < 9; ++i) {
+      for (auto i = 0; i < WIDTH * HEIGHT; ++i) {
 	retval[i] = pixel + offsets_[i];
       }
 
       return retval;
     }
   private:
-    Eigen::Vector2f offsets_[9];
+    Eigen::Vector2f offsets_[WIDTH * HEIGHT];
   };
 }

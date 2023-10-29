@@ -8,18 +8,22 @@
 
 #include <curand_kernel.h>
 
-#include "check_error.cuh"
 #include "container/alloc.cuh"
+#include "container/shared_buffer.cuh"
 #include "container/variant.cuh"
 #include "container/vector.cuh"
 #include "core/light.cuh"
 #include "core/ray.cuh"
 #include "core/scene_object.cuh"
+#include "cuda_utils/check_error.cuh"
+#include "cuda_utils/curand_state.cuh"
+#include "cuda_utils/work_partition.cuh"
 #include "pipeline/multisample_mesh.cuh"
-#include "pipeline/work_partition.cuh"
 #include "pipeline/viewport.cuh"
 
 namespace config {
+
+  static constexpr std::size_t MAX_RECURSION_DEPTH = 50;
 
   void print_help_and_exit(const char *name)
   {
@@ -37,45 +41,23 @@ namespace config {
   }
 }
 
-__device__ Eigen::Vector3f simple_light_color(const rt::HitResult &hit_result,
-					      const rt::MaterialColorFunction &color_function,
-					      const rt::VectorView<rt::SceneObject> &objects,
-					      const rt::ArrayView<rt::DirectionalLight, 1> &lights)
-{
-  Eigen::Vector3f result{0.01f, 0.01f, 0.01f};
-  
-  for (auto &light: lights) {
-    auto point_to_light_ray = light.ray_from(hit_result.point);
-
-    bool obstructed = false;
-    for (auto &object: objects) {
-      if (point_to_light_ray.obstructed_by(object)) {
-	obstructed = true;
-	break;
-      }
-    }
-
-    if (obstructed) {
-      continue;
-    }
-
-    auto scale = -hit_result.normal.dot(point_to_light_ray.hit_result.normal);
-    auto light_color = point_to_light_ray.color;
-    if (scale > 0) {
-      result += scale * color_function(light_color);
-    }
-  }
-
-  return result;
-}					      
-
 __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 				     const rt::Ray &r,
 				     const rt::VectorView<rt::SceneObject> &objects,
-				     const rt::ArrayView<rt::DirectionalLight, 1> &lights)
+				     const rt::VectorView<rt::DirectionalLight> &lights,
+				     curandState &rand_state,
+				     std::size_t recursion_depth)
 {
+  if (recursion_depth > config::MAX_RECURSION_DEPTH) {
+    return Eigen::Vector3f{0.01f, 0.01f, 0.01f};
+  }
+  
   auto inf = float(INFINITY);
-  auto t_interval = rt::Interval(0, inf);
+
+  // offset intersect so we don't bounce again on the same surface
+  // (the intersect might be computed underneath the surface due to
+  //  float numerical imprecision)
+  auto t_interval = rt::Interval(0.01f, inf);
   auto lowest_t = inf;
   auto hit_index = 0u;
   rt::Optional<rt::HitResult> hit_result;
@@ -97,10 +79,23 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
   if (hit_result) {
     auto bounce_result = objects[hit_index].bounce(r,
 						   hit_result.value().point,
-						   hit_result.value().normal);
-    return simple_light_color(hit_result.value(),
-			      bounce_result.color_function,
-			      objects, lights);
+						   hit_result.value().normal,
+						   rand_state);
+
+    auto maybe_light_color = light_color(hit_result.value(),
+					 objects, lights);
+
+    auto incoming = color_ray(width, height, bounce_result.ray,
+			      objects, lights, rand_state, recursion_depth + 1u);
+
+    auto &material_color_function = bounce_result.color_function;
+    if (maybe_light_color) {
+      return material_color_function(incoming) +
+	material_color_function(maybe_light_color.value());
+
+    } else {
+      return material_color_function(incoming);
+    }
   }
   
   // background
@@ -112,7 +107,9 @@ __device__ Eigen::Vector3f color_ray(std::size_t width, std::size_t height,
 
 __global__ void render(rt::Viewport viewport,
 		       rt::VectorView<rt::SceneObject> objects,
-		       rt::ArrayView<rt::DirectionalLight, 1> lights,
+		       rt::VectorView<rt::DirectionalLight> lights,
+		       rt::DeviceSharedBufferView<rt::MultisampleMesh> msmesh,
+		       rt::CurandStateView rand,
 		       rt::ImageBufferView img)
 {
   int col = threadIdx.x + blockIdx.x * blockDim.x;
@@ -132,25 +129,27 @@ __global__ void render(rt::Viewport viewport,
     std::printf("center %f %f %f\n", center.direction().x(), center.direction().y(), center.direction().z());
   }
 
-  rt::MultisampleMesh msmesh(img.width(), img.height());
-  
   if (row < img.height() && col < img.width()) {
     int pixel_index = row * img.width() + col;
+    // avoid false sharing on curand states.
+    curandState local_rand_state = *rand.state(pixel_index);
     float u = float(col) / img.width();
     float v = float(row) / img.height();
+
     // if (int(u * img.width()) % 64 == 0 || int(v * img.height()) % 64 == 0) {
     //   img.buffer()[pixel_index] = Eigen::Vector3f{0.1f, 0.1f, 0.1f};
     //   return;
     // }
-    
+        
     Eigen::Vector2f pixel(u, v);
     
-    auto samples = msmesh.generate_samples(pixel);
+    auto samples = msmesh.value().generate_samples(pixel);
     img.buffer()[pixel_index] = Eigen::Vector3f{0.0f, 0.0f, 0.0f};
 
     for (auto &s : samples) {
       auto ray = viewport.compute_ray(s.x(), s.y());
-      img.buffer()[pixel_index] += color_ray(img.width(), img.height(), ray, objects, lights);
+      img.buffer()[pixel_index] += color_ray(img.width(), img.height(), ray,
+					     objects, lights, local_rand_state, 0u);
     }
     
     img.buffer()[pixel_index] /= float(samples.size());
@@ -164,7 +163,9 @@ int main(int argc, char **argv)
   }
   
   rt::ImageBuffer img(2048, 1024);
-
+  rt::CurandState rand(img.width() * img.height());
+  auto msmesh = rt::make_gpu_shared(rt::MultisampleMesh(img.width(), img.height()));
+  
   int threads_w = 8;
   int threads_h = 8;
 
@@ -206,12 +207,14 @@ int main(int argc, char **argv)
 						       rt::diffuse_blue())});
 
 
-  rt::Array<rt::DirectionalLight, 1> lights({rt::DirectionalLight{line_dir,
-                                                                  Eigen::Vector3f(1.0f, 1.0f, 1.0f)}});
+  rt::Vector<rt::DirectionalLight> lights({rt::DirectionalLight{line_dir,
+								Eigen::Vector3f(16.0f, 16.0f, 16.0f)}});
   
   render<<<blocks, threads>>>(viewport,
 			      rt::make_view(spheres),
 			      rt::make_view(lights),
+			      rt::make_view(msmesh),
+			      rt::make_view(rand),
 			      rt::ImageBufferView(img));
 
   checkCudaErrors(cudaGetLastError());

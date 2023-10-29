@@ -130,4 +130,42 @@ namespace rt {
   class DomeLight {
     // TODO
   };
+
+
+  __device__ inline rt::Optional<Eigen::Vector3f>
+  light_color(const rt::HitResult &hit_result,
+	      const rt::VectorView<rt::SceneObject> &objects,
+	      const rt::VectorView<rt::DirectionalLight> &lights)
+  {
+    rt::Optional<Eigen::Vector3f> result;
+  
+    for (auto &light: lights) {
+      auto point_to_light_ray = light.ray_from(hit_result.point);
+
+      bool obstructed = false;
+      for (auto &object: objects) {
+	if (point_to_light_ray.obstructed_by(object)) {
+	  obstructed = true;
+	  break;
+	}
+      }
+
+      if (obstructed) {
+	continue;
+      }
+
+      auto scale = -hit_result.normal.dot(point_to_light_ray.hit_result.normal);
+      auto light_color = point_to_light_ray.color;
+      if (scale > 0) {
+	if (result) {
+	  result.value() += scale * light_color;
+	} else {
+	  result = Eigen::Vector3f{scale * light_color};
+	}
+      }
+    }
+
+    return result;
+  }
+
 }
