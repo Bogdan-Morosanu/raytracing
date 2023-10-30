@@ -6,6 +6,7 @@
 #include "core/hit_result.cuh"
 #include "core/interval.cuh"
 #include "core/ray.cuh"
+#include "core/transform.cuh"
 
 namespace rt {
 
@@ -69,6 +70,11 @@ namespace rt {
 
       // no valid param
       return {};
+    }
+
+    __host__ __device__ void apply_transform(const Transform &t)
+    {
+      center_ = t(center_);
     }
     
   private:

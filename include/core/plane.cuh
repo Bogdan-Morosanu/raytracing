@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 
 #include "core/interval.cuh"
+#include "core/transform.cuh"
 #include "container/optional.cuh"
 
 namespace rt {
@@ -25,6 +26,11 @@ namespace rt {
 				       const Interval &t_interval) const
     {
       return {}; // TODO implement
+    }
+
+    __host__ __device__ void apply_transform(const Transform &t) const
+    {
+      // TODO implement
     }
 
   private:

@@ -6,6 +6,7 @@
 #include "core/hit_result.cuh"
 #include "core/interval.cuh"
 #include "core/ray.cuh"
+#include "core/transform.cuh"
 
 namespace rt {
 
@@ -53,6 +54,7 @@ namespace rt {
   
   class Triangle {
   public:
+    __host__ __device__
     Triangle(Eigen::Vector3f a, Eigen::Vector3f b, Eigen::Vector3f c)
       : plane_normal_(((a-b).cross(c-a)).normalized())
       , plane_intercept_()
@@ -97,9 +99,20 @@ namespace rt {
 	}
       }
 
-      return {};      
+      return {};
     }
-    
+
+    __host__ __device__ void apply_transform(const Transform &t)
+    {
+      auto new_a = t(a_);
+      auto new_b = t(b_);
+      auto new_c = t(c_);
+
+      this->~Triangle(); // trivial, done for consistency
+      new (this) Triangle(new_a, new_b, new_c);
+    }
+
+    __host__ __device__ ~Triangle() = default;
   private:
 
     Eigen::Vector3f plane_normal_;
@@ -107,5 +120,12 @@ namespace rt {
     internal::LineDiscriminator disc_ab_to_c_;
     internal::LineDiscriminator disc_bc_to_a_;
     internal::LineDiscriminator disc_ca_to_b_;
+
+    // TODO work out how to apply transform to the structures above,
+    // which are the ones used for actual rendering, so we don't need
+    // to store a,b,c
+    Eigen::Vector3f a_;
+    Eigen::Vector3f b_;
+    Eigen::Vector3f c_;
   };
 }

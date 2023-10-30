@@ -4,6 +4,7 @@
 #include "core/material.cuh"
 #include "core/plane.cuh"
 #include "core/sphere.cuh"
+#include "core/transform.cuh"
 #include "core/triangle.cuh"
 #include "container/variant.cuh"
 #include "cuda_utils/curand_state.cuh"
@@ -74,6 +75,16 @@ namespace rt {
 				  };
 
       return material_.visit(light_bounce_visitor);
+    }
+
+    __host__ __device__ void apply_transform(const Transform &t)
+    {
+      auto apply_transform_visitor = [&t](auto &geometry)
+				     {
+				       geometry.apply_transform(t);
+				     };
+
+      geometry_.visit(apply_transform_visitor);
     }
 
   private:
